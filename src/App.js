@@ -214,9 +214,9 @@ export default function App() {
             </div>
           </header>
           <main className="">
-            <div className="mx-auto grid grid-cols-3 grid-flow-col max-w-7xl sm:px-6 lg:px-8">
+            <div className="mx-auto grid grid-cols-3 grid-flow-col max-w-8xl sm:px-6 lg:px-8">
               <Categories className="bg-white min-h-4" onCategoryChange={handleCategoryChange} />
-              <AllStores className=" bg-white col-span-2 min-h-4"  selectedCategory={selectedCategory} />
+              <AllStores className=" bg-white col-span-2 min-h-4"   selectedCategory={selectedCategory}   />
             </div>
           </main>
         </div>

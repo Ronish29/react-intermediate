@@ -7,8 +7,8 @@ import { FaHeart } from "react-icons/fa";
 const AllStores = ({ className, selectedCategory }) => {
   const [stores, setStores] = useState([]);
   const [storeName, setStoreName] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState("publish");
-  const [selectedSort, setSelectedSort] = useState("name");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [selectedSort, setSelectedSort] = useState("");
   const [selectedAlphabet, setSelectedAlphabet] = useState(null);
   const [cashbackChecked, setCashbackChecked] = useState(false);
   const [promotedChecked, setPromotedChecked] = useState(false);
@@ -40,37 +40,61 @@ const AllStores = ({ className, selectedCategory }) => {
     if (selectedStatus) {
       queryParams.push(`status=${selectedStatus}`);
     }
-    if (selectedAlphabet !== null) {
+    if (selectedAlphabet !== null && storeName.trim() !== '') {
+      const selectedChar = alphabets[selectedAlphabet].char.toLowerCase();
+      console.log(storeName.startsWith(selectedChar));
+      if(storeName.startsWith(selectedChar)){
+        const newStore =storeName.substring(1,storeName.length );
+        queryParams.push(`name_like=^${selectedChar}${newStore.trim()}`);
+      }
+      else{
+        queryParams.push(`name_like=^${selectedChar}${storeName.trim()}`);
+      }
+      
+    }else if (selectedAlphabet !== null && storeName.trim() === '') {
       const selectedChar = alphabets[selectedAlphabet].char.toLowerCase();
       queryParams.push(`name_like=^${selectedChar}`);
-    }
-
-    if (storeName.trim() !== '') {
+    }else if (selectedAlphabet === null && storeName.trim() !== '') {
       queryParams.push(`name_like=${storeName.trim()}`);
     }
 
+
+
     if (selectedSort) {
+      console.log("selected sort",selectedSort);
+      
       const [sortField, sortOrder] = selectedSort.split(':');
-      queryParams.push(`_sort=${sortField}`);
-      if (sortOrder) {
-        queryParams.push(`_order=${sortOrder}`);
+      console.log("sort field",sortField);
+      console.log("sort order", sortOrder)
+
+      if (sortField === 'featured') {
+        queryParams.push(`is_featured=1`);
+      } else {
+        queryParams.push(`_sort=${sortField}`);
+        if (sortOrder) {
+          queryParams.push(`_order=${sortOrder}`);
+        }
       }
     }
 
 
     if (queryParams.length > 0) {
+      console.log("printing query params", queryParams);
       apiUrl += `?${queryParams.join('&')}`;
     }
 
     axios.get(apiUrl)
       .then(response => {
-        console.log(response);
-        setStores(response.data);
+        if (response.data) {
+          setStores(response.data);
+        }
       })
       .catch(error => {
         console.error("error", error);
       });
   }, [selectedCategory, selectedStatus, selectedSort, cashbackChecked, promotedChecked, shareChecked, selectedAlphabet, storeName]);
+
+
 
   const storeNameHandle = (e) => {
     setStoreName(e.target.value);
@@ -120,7 +144,6 @@ const AllStores = ({ className, selectedCategory }) => {
   };
 
 
-
   const handleAlphabet = (index) => {
     setSelectedAlphabet(index);
     console.log(index);
@@ -145,19 +168,29 @@ const AllStores = ({ className, selectedCategory }) => {
     }
   };
 
-  const handleLikeClick = (index) => {
+  const handleLikeClick = (storeId) => {
     setLikedStores(prevLikedStores => {
-      const alreadyLiked = prevLikedStores.includes(index);
+      const alreadyLiked = prevLikedStores.includes(storeId);
       const updatedLikedStores = alreadyLiked
-        ? prevLikedStores.filter((storeIndex) => storeIndex !== index)
-        : [...prevLikedStores, index];
-
-
+        ? prevLikedStores.filter(id => id !== storeId)
+        : [...prevLikedStores, storeId];
+  
       localStorage.setItem('likedStores', JSON.stringify(updatedLikedStores));
-
+  
       return updatedLikedStores;
     });
   };
+  
+
+  const resetHandle = () => {
+    setStoreName('');
+    setSelectedStatus("");
+    setSelectedSort("");
+    setSelectedAlphabet(null);
+    setCashbackChecked(false);
+    setPromotedChecked(false);
+    setShareChecked(false);
+  }
 
 
   return (
@@ -166,6 +199,7 @@ const AllStores = ({ className, selectedCategory }) => {
         <select name="status" id="status" className="border rounded-md"
           value={selectedStatus}
           onChange={handleStatusChange}>
+          <option value="">Select Status</option>
           <option value="publish">Active</option>
           <option value="draft">Coming soon</option>
           <option value="trash">Discontinued</option>
@@ -184,15 +218,16 @@ const AllStores = ({ className, selectedCategory }) => {
           <select name="sort" id="sort"
             value={selectedSort}
             onChange={handleSortChange}>
-            <option value="name">Name</option>
+            <option value="">Sort by</option>
+            <option value="asc">Name</option>
             <option value="featured">Featured</option>
-            <option value="popularity">Popularity</option>
-            <option value="cashback">Cashback</option>
+            <option value="clicks">Popularity</option>
+            <option value="cashback_amount">Cashback</option>
           </select>
         </div>
       </div>
 
-      <div className="flex gap-x-3 my-4">
+      <div className="flex gap-x-3 my-4 items-center w-full">
         <input
           type="checkbox"
           id="cashback"
@@ -219,6 +254,10 @@ const AllStores = ({ className, selectedCategory }) => {
           onChange={handleCheckboxChange}
         />
         <label htmlFor="share">Share & Earn</label>
+
+        <button className="px-4 py-2 bg-blue-400 rounded-md " onClick={resetHandle}>
+          Reset
+        </button>
       </div>
 
 
@@ -233,41 +272,54 @@ const AllStores = ({ className, selectedCategory }) => {
       </ul>
 
       <div className="grid xl:grid-cols-4 lg:grid-cols-3 md:grid-cols-2 sm:grid-cols-1 gap-x-3 gap-y-5">
-        {stores.map((item, index) => (
-          <div className='flex flex-col gap-y-2 justify-between relative h-[125px] items-center border rounded-md cursor-pointer px-4' key={index}
-            onClick={() => {
-              if (item.homepage) {
-                window.open(item.homepage, '_blank');
-              }
-            }}
-          >
-            <img src={item.logo} alt="item_logo" className="rounded-full aspect-square w-10" />
-            <span className="absolute right-2 top-1" onClick={(e) => {
-              e.stopPropagation();
-              handleLikeClick(index);
-            }}>
-              {likedStores.includes(index) ? <FaHeart className="text-red-500" /> : <FaRegHeart />}
-            </span>
-            <p className="text-sm">{item.name}</p>
-            {cashbackChecked ? (
+        {
+          stores.length > 0 ?
+            (
               <>
-                {item.cashback_enabled ? (
-                  <>
-                    {item.amount_type === "percent" ? (
-                      <p className="text-sm">{`${item.rate_type} ${item.cashback_amount.toFixed(2)}% Cashback`}</p>
-                    ) : (
-                      <p className="text-sm">{`${item.rate_type} $ ${item.cashback_amount.toFixed(2)} Cashback`}</p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm">No cashback available</p>
-                )}
-              </>
-            ) : (
-              <p className="text-sm">Cashback not available</p>
-            )}
-          </div>
-        ))}
+              {stores.map(item => (
+                <div
+                  className='flex flex-col gap-y-2 justify-between relative h-[125px] items-center border rounded-md cursor-pointer px-4'
+                  key={item.id}
+                  onClick={() => {
+                    if (item.homepage) {
+                      window.open(item.homepage, '_blank');
+                    }
+                  }}
+                >
+                  <img src={item.logo} alt="item_logo" className="rounded-full aspect-square w-10" />
+                  <span className="absolute right-2 top-1" onClick={(e) => {
+                    e.stopPropagation();
+                    handleLikeClick(item.id);
+                  }}>
+                    {likedStores.includes(item.id) ? <FaHeart className="text-red-500" /> : <FaRegHeart />}
+                  </span>
+                  <p className="text-sm">{item.name}</p>
+                  {cashbackChecked ? (
+                    <>
+                      {item.cashback_enabled ? (
+                        <>
+                          {item.amount_type === "percent" ? (
+                            <p className="text-sm">{`${item.rate_type} ${item.cashback_amount.toFixed(2)}% Cashback`}</p>
+                          ) : (
+                            <p className="text-sm">{`${item.rate_type} $ ${item.cashback_amount.toFixed(2)} Cashback`}</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm">No cashback available</p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm">Cashback not available</p>
+                  )}
+                </div>
+              ))}
+            </>
+            ) :
+            (
+              <h1 className="text-3xl ">No data found</h1>
+            )
+        }
+
       </div>
     </div>
   );
